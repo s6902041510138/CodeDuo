@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CodeDuo - Gamified Coding Adventure</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            cyberDark: '#090d16',
+            cyberCard: '#0f172a',
+            cyberBorder: '#1e293b',
+            neonGreen: '#10b981',
+            neonCyan: '#06b6d4',
+            cyberPurple: '#8b5cf6',
+            neonPink: '#ec4899',
+            arcadeGold: '#f59e0b'
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="cyber-grid-bg text-slate-100 flex flex-col min-h-screen">
+
+  <!-- CRT Scanlines Overlay (Toggleable) -->
+  <div id="crt-overlay" class="crt-overlay crt-flicker"></div>
+
+  <!-- ==================== TOP HEADER BAR ==================== -->
+  <header class="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md border-b border-slate-800 px-4 py-2.5">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+      
+      <!-- Brand & Language Track -->
+      <div class="flex items-center gap-4">
+        <a href="#" class="flex items-center gap-2 group">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-purple-600 flex items-center justify-center font-arcade text-white shadow-[0_0_15px_#8b5cf6] group-hover:scale-105 transition-transform">
+            ⚡
+          </div>
+          <div>
+            <div class="font-arcade text-sm text-cyan-400 flex items-center tracking-wider text-glow-cyan">
+              CodeDuo<span class="animate-pulse ml-0.5 text-pink-500">_</span>
+            </div>
+            <div class="text-[10px] text-slate-400 font-mono tracking-widest uppercase">RETRO ARCADE IDE</div>
+          </div>
+        </a>
+
+        <!-- Track Selector -->
+        <div class="hidden sm:flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs font-mono">
+          <i data-lucide="code" class="w-3.5 h-3.5 text-cyan-400"></i>
+          <select id="language-select" class="bg-transparent text-slate-200 outline-none cursor-pointer text-xs font-mono">
+            <option value="javascript" class="bg-slate-900 text-slate-200">JavaScript ⚡</option>
+            <option value="python" class="bg-slate-900 text-slate-200">Python 🐍</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- User Stats HUD -->
+      <div class="flex items-center gap-3 sm:gap-5">
+        
+        <!-- Level & XP Progress -->
+        <div class="hidden md:flex flex-col items-end min-w-[120px]">
+          <div class="flex items-center justify-between w-full text-xs font-mono mb-1">
+            <span id="header-level" class="font-arcade text-[10px] text-purple-400">LVL 1</span>
+            <span id="header-xp-text" class="text-slate-400 text-[11px]">65 / 150 XP</span>
+          </div>
+          <div class="w-full h-2 bg-slate-900 rounded-full border border-slate-800 overflow-hidden">
+            <div id="header-xp-bar" class="h-full bg-gradient-to-r from-purple-500 to-cyan-400 transition-all duration-500" style="width: 43%"></div>
+          </div>
+        </div>
+
+        <!-- Streak Counter -->
+        <div class="flex items-center gap-1.5 bg-slate-900/90 border border-amber-500/30 px-3 py-1.5 rounded-xl shadow-[0_0_10px_rgba(245,158,11,0.2)]">
+          <span class="text-base animate-pulse">🔥</span>
+          <span id="header-streak" class="font-arcade text-xs text-amber-400 font-bold">5</span>
+          <span class="hidden sm:inline text-xs text-slate-400 font-mono">Days</span>
+        </div>
+
+        <!-- Byte Coins -->
+        <div class="flex items-center gap-1.5 bg-slate-900/90 border border-yellow-500/30 px-3 py-1.5 rounded-xl shadow-[0_0_10px_rgba(234,179,8,0.2)]">
+          <span class="text-base">🪙</span>
+          <span id="header-coins" class="font-arcade text-xs text-yellow-400 font-bold">240</span>
+        </div>
+
+        <!-- Battery / Energy Health -->
+        <div class="flex items-center gap-2 bg-slate-900/90 border border-cyan-500/30 px-3 py-1.5 rounded-xl shadow-[0_0_10px_rgba(6,182,212,0.2)]" title="Battery Power: Lost on incorrect answers">
+          <span class="text-cyan-400 font-bold">⚡</span>
+          <span id="header-energy" class="font-arcade text-xs text-cyan-300 font-bold">5/5</span>
+          <div id="header-energy-cells" class="hidden sm:flex items-center gap-1 ml-1">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+
+        <!-- Controls: Audio & CRT -->
+        <div class="flex items-center gap-1.5 border-l border-slate-800 pl-3">
+          <button id="btn-audio-toggle" class="p-2 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all text-slate-300" title="Toggle 8-bit Audio FX">
+            <i data-lucide="volume-2" class="w-5 h-5 text-emerald-400"></i>
+          </button>
+          <button id="btn-crt-toggle" class="p-2 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all text-cyan-400" title="Toggle Retro CRT Scanlines">
+            <i data-lucide="tv" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ==================== MAIN LAYOUT ==================== -->
+  <div class="flex-1 flex max-w-7xl w-full mx-auto relative">
+    
+    <!-- Cyber Sidebar Navigation -->
+    <aside class="w-20 md:w-64 bg-slate-950/80 backdrop-blur-md border-r border-slate-800/80 flex flex-col justify-between py-6 shrink-0 z-20">
+      <nav class="flex flex-col gap-2 px-3">
+        
+        <button data-nav-target="learn" class="flex items-center gap-3.5 px-3 py-3 rounded-xl transition-all bg-slate-800 text-cyan-400 border-l-4 border-cyan-400 w-full group">
+          <i data-lucide="map" class="w-5 h-5 group-hover:scale-110 transition-transform"></i>
+          <span class="hidden md:inline font-heading font-semibold tracking-wide text-sm">LEARN MAP</span>
+        </button>
+
+        <button data-nav-target="practice" class="flex items-center gap-3.5 px-3 py-3 rounded-xl transition-all text-slate-400 hover:text-cyan-300 hover:bg-slate-900/60 w-full group">
+          <i data-lucide="swords" class="w-5 h-5 group-hover:scale-110 transition-transform"></i>
+          <span class="hidden md:inline font-heading font-semibold tracking-wide text-sm">PRACTICE ARENA</span>
+        </button>
+
+        <button data-nav-target="leaderboard" class="flex items-center gap-3.5 px-3 py-3 rounded-xl transition-all text-slate-400 hover:text-cyan-300 hover:bg-slate-900/60 w-full group">
+          <i data-lucide="trophy" class="w-5 h-5 group-hover:scale-110 transition-transform"></i>
+          <span class="hidden md:inline font-heading font-semibold tracking-wide text-sm">LEADERBOARD</span>
+        </button>
+
+        <button data-nav-target="shop" class="flex items-center gap-3.5 px-3 py-3 rounded-xl transition-all text-slate-400 hover:text-cyan-300 hover:bg-slate-900/60 w-full group">
+          <i data-lucide="shopping-bag" class="w-5 h-5 group-hover:scale-110 transition-transform"></i>
+          <span class="hidden md:inline font-heading font-semibold tracking-wide text-sm">CYBER SHOP</span>
+        </button>
+
+        <button data-nav-target="profile" class="flex items-center gap-3.5 px-3 py-3 rounded-xl transition-all text-slate-400 hover:text-cyan-300 hover:bg-slate-900/60 w-full group">
+          <i data-lucide="user-check" class="w-5 h-5 group-hover:scale-110 transition-transform"></i>
+          <span class="hidden md:inline font-heading font-semibold tracking-wide text-sm">HACKER PROFILE</span>
+        </button>
+
+      </nav>
+
+      <!-- Sidebar Footer Badge -->
+      <div class="px-4 hidden md:block">
+        <div class="p-3 bg-slate-900/90 border border-slate-800 rounded-xl text-center">
+          <div class="text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-1">CYBER PROTOCOL</div>
+          <div class="text-xs font-arcade text-emerald-400 text-glow-green">ONLINE v2.4</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 overflow-y-auto px-4 py-8 relative">
+
+      <!-- ==================== VIEW 1: LEARN MAP ==================== -->
+      <div id="view-learn" class="app-view-container max-w-5xl mx-auto flex flex-col lg:flex-row gap-8 items-start">
+        
+        <!-- Center Progression Skill Tree -->
+        <div class="flex-1 w-full relative">
+          
+          <!-- Section Banner -->
+          <div class="bg-gradient-to-r from-purple-950/60 via-slate-900/90 to-cyan-950/60 border border-slate-800 rounded-2xl p-5 mb-8 flex items-center justify-between shadow-xl">
+            <div>
+              <div class="text-[11px] font-mono text-purple-400 tracking-wider uppercase mb-1">CURRENT CAMPAIGN</div>
+              <h2 class="font-arcade text-sm sm:text-base text-slate-100">SECTOR 01: SYNTAX FOUNDRY</h2>
+              <p class="text-xs text-slate-400 font-mono mt-1">Traverse the mainframe nodes and conquer the Loop Boss Battle.</p>
+            </div>
+            <div class="hidden sm:flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-emerald-500 animate-ping"></span>
+              <span class="text-xs font-arcade text-emerald-400">ACTIVE TRACK</span>
+            </div>
+          </div>
+
+          <!-- Sinuous Node Path Container -->
+          <div class="node-path-container relative w-full" id="map-nodes-container">
+            <!-- Dynamic SVG Circuit Connectors -->
+            <svg id="circuit-svg" class="circuit-canvas"></svg>
+            <!-- Stage nodes dynamically inserted here -->
+          </div>
+
+        </div>
+
+        <!-- Right Side: Daily Quests & Widget Panel -->
+        <div class="w-full lg:w-80 shrink-0 flex flex-col gap-6">
+          
+          <!-- Daily Quests Card -->
+          <div class="bg-slate-950/90 border border-slate-800 rounded-2xl p-5 shadow-xl">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-2">
+                <i data-lucide="target" class="w-5 h-5 text-amber-400"></i>
+                <h3 class="font-arcade text-xs text-slate-100">DAILY QUESTS</h3>
+              </div>
+              <span class="text-[10px] font-mono text-slate-500">RESETS 24H</span>
+            </div>
+
+            <!-- Quests List -->
+            <div id="daily-quests-list" class="flex flex-col gap-3">
+              <!-- Rendered by JS -->
+            </div>
+          </div>
+
+          <!-- Cyber Mascot Widget Preview -->
+          <div class="bg-slate-950/90 border border-slate-800 rounded-2xl p-5 shadow-xl flex items-center gap-4">
+            <div class="w-16 h-16 shrink-0 relative flex items-center justify-center">
+              <svg viewBox="0 0 100 110" width="100%" height="100%">
+                <ellipse cx="50" cy="102" rx="16" ry="4" fill="#06b6d4" opacity="0.4" class="animate-pulse" />
+                <line x1="50" y1="20" x2="50" y2="6" stroke="#64748b" stroke-width="3" stroke-linecap="round" />
+                <circle cx="50" cy="5" r="5" fill="#06b6d4" />
+                <rect x="20" y="20" width="60" height="56" rx="16" fill="#1e293b" stroke="#06b6d4" stroke-width="2.5" />
+                <rect x="26" y="28" width="48" height="42" rx="10" fill="#090d16" stroke="#334155" stroke-width="1.5" />
+                <rect x="36" y="42" width="8" height="12" rx="2" fill="#00f0ff" />
+                <rect x="56" y="42" width="8" height="12" rx="2" fill="#00f0ff" />
+                <path d="M42 62 Q50 68 58 62" stroke="#00f0ff" stroke-width="3" fill="none" stroke-linecap="round" />
+                <path d="M34 78 L66 78 L60 96 L40 96 Z" fill="#1e293b" stroke="#06b6d4" stroke-width="2" />
+                <circle cx="50" cy="87" r="4" fill="#06b6d4" />
+              </svg>
+            </div>
+            <div>
+              <h4 class="font-arcade text-xs text-cyan-400 mb-1">PIXEL-BIT BOT</h4>
+              <p class="text-xs text-slate-400 font-mono">"Ready to compile new subroutines! Choose an unlocked node to begin."</p>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- ==================== VIEW 2: PRACTICE ARENA ==================== -->
+      <div id="view-practice" class="app-view-container hidden max-w-5xl mx-auto">
+        <div class="mb-8">
+          <h2 class="font-arcade text-base sm:text-lg text-slate-100 flex items-center gap-3">
+            <i data-lucide="swords" class="w-6 h-6 text-pink-400"></i>
+            CYBER PRACTICE ARENA
+          </h2>
+          <p class="text-sm text-slate-400 font-mono mt-1">Hone your debugging reflexes, conquer daily code katas, and earn bonus rewards.</p>
+        </div>
+        <div id="practice-arena-content">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+      <!-- ==================== VIEW 3: LEADERBOARD ==================== -->
+      <div id="view-leaderboard" class="app-view-container hidden max-w-3xl mx-auto">
+        <div class="mb-8 flex items-center justify-between">
+          <div>
+            <h2 class="font-arcade text-base sm:text-lg text-slate-100 flex items-center gap-3">
+              <i data-lucide="trophy" class="w-6 h-6 text-amber-400"></i>
+              WEEKLY CYBER LEAGUE
+            </h2>
+            <p class="text-sm text-slate-400 font-mono mt-1">Tier: <span class="text-purple-400 font-bold">NEON DIAMOND</span> • Top 3 hackers receive rare skin crates!</p>
+          </div>
+          <div class="px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl font-mono text-xs text-slate-400">
+            Resets in 3d 14h
+          </div>
+        </div>
+
+        <div id="leaderboard-list" class="flex flex-col gap-3">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+      <!-- ==================== VIEW 4: CYBER SHOP ==================== -->
+      <div id="view-shop" class="app-view-container hidden max-w-4xl mx-auto">
+        <div class="mb-8">
+          <h2 class="font-arcade text-base sm:text-lg text-slate-100 flex items-center gap-3">
+            <i data-lucide="shopping-bag" class="w-6 h-6 text-emerald-400"></i>
+            CYBERNETIC GEAR &amp; POWER-UPS
+          </h2>
+          <p class="text-sm text-slate-400 font-mono mt-1">Spend Byte Coins earned from coding lessons to overclock your abilities and customize Pixel-Bit.</p>
+        </div>
+
+        <div id="shop-items-container" class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+      <!-- ==================== VIEW 5: HACKER PROFILE ==================== -->
+      <div id="view-profile" class="app-view-container hidden max-w-4xl mx-auto">
+        <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 sm:p-8 mb-8 shadow-2xl">
+          <div class="flex flex-col sm:flex-row items-center gap-6">
+            <div class="w-24 h-24 rounded-2xl bg-gradient-to-tr from-purple-600 to-cyan-500 p-1 shadow-[0_0_20px_#8b5cf6]">
+              <div class="w-full h-full bg-slate-950 rounded-xl flex items-center justify-center text-4xl">
+                👾
+              </div>
+            </div>
+            <div class="text-center sm:text-left">
+              <h2 id="profile-name" class="font-arcade text-lg text-slate-100 mb-1">NeoCoder_01</h2>
+              <div id="profile-level-badge" class="inline-block px-3 py-1 bg-purple-950/80 border border-purple-500/40 rounded-full font-mono text-xs text-purple-300 font-semibold mb-2">
+                LVL 1 CYBER NOVICE
+              </div>
+              <p class="text-xs text-slate-400 font-mono">Terminal IP: 192.168.1.42 • Language: Modern JavaScript / Python</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hacker Stats Cards -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+          <div class="bg-slate-950 border border-slate-800 p-4 rounded-xl text-center">
+            <div class="text-slate-500 text-xs font-mono mb-1">CHALLENGES SOLVED</div>
+            <div id="profile-stat-solved" class="font-arcade text-lg text-cyan-400">14</div>
+          </div>
+          <div class="bg-slate-950 border border-slate-800 p-4 rounded-xl text-center">
+            <div class="text-slate-500 text-xs font-mono mb-1">HIGHEST STREAK</div>
+            <div id="profile-stat-streak" class="font-arcade text-lg text-amber-400">5 Days</div>
+          </div>
+          <div class="bg-slate-950 border border-slate-800 p-4 rounded-xl text-center">
+            <div class="text-slate-500 text-xs font-mono mb-1">TOTAL COINS</div>
+            <div id="profile-stat-coins" class="font-arcade text-lg text-yellow-400">240</div>
+          </div>
+          <div class="bg-slate-950 border border-slate-800 p-4 rounded-xl text-center">
+            <div class="text-slate-500 text-xs font-mono mb-1">FLAWLESS NODES</div>
+            <div id="profile-stat-perfect" class="font-arcade text-lg text-emerald-400">3</div>
+          </div>
+        </div>
+
+        <!-- 30-Day Activity Heatmap -->
+        <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 mb-8">
+          <h3 class="font-arcade text-xs text-slate-200 mb-4 flex items-center gap-2">
+            <i data-lucide="calendar" class="w-4 h-4 text-emerald-400"></i>
+            CODE REPL ACTIVITY HEATMAP (PAST 30 DAYS)
+          </h3>
+          <div id="profile-activity-heatmap" class="flex flex-wrap gap-2">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+
+        <!-- Badges Showcase -->
+        <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 mb-8">
+          <h3 class="font-arcade text-xs text-slate-200 mb-4 flex items-center gap-2">
+            <i data-lucide="award" class="w-4 h-4 text-purple-400"></i>
+            EARNED BADGES &amp; TROPHIES
+          </h3>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div class="p-3 bg-slate-900 border border-emerald-500/40 rounded-xl text-center">
+              <div class="text-2xl mb-1">⚡</div>
+              <div class="font-arcade text-[10px] text-emerald-400">FIRST COMPILE</div>
+              <div class="text-[10px] text-slate-500 font-mono mt-0.5">Cleared Node 1</div>
+            </div>
+            <div class="p-3 bg-slate-900 border border-purple-500/40 rounded-xl text-center">
+              <div class="text-2xl mb-1">🔍</div>
+              <div class="font-arcade text-[10px] text-purple-400">BUG SLAYER</div>
+              <div class="text-[10px] text-slate-500 font-mono mt-0.5">Found 5 syntax bugs</div>
+            </div>
+            <div class="p-3 bg-slate-900 border border-amber-500/40 rounded-xl text-center">
+              <div class="text-2xl mb-1">🔥</div>
+              <div class="font-arcade text-[10px] text-amber-400">STREAK ON FIRE</div>
+              <div class="text-[10px] text-slate-500 font-mono mt-0.5">5 Day Continuous</div>
+            </div>
+            <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl text-center opacity-40">
+              <div class="text-2xl mb-1">👑</div>
+              <div class="font-arcade text-[10px] text-slate-400">BOSS SLAYER</div>
+              <div class="text-[10px] text-slate-500 font-mono mt-0.5">Defeat Glitch King</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reset Button -->
+        <div class="flex justify-end">
+          <button id="btn-reset-progress" class="text-xs font-mono text-red-400 hover:text-red-300 underline">
+            Clear Local Data &amp; Reset Game
+          </button>
+        </div>
+
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ==================== MODAL: STAGE PREVIEW ==================== -->
+  <div id="stage-preview-modal" class="fixed inset-0 z-50 cyber-modal-backdrop hidden items-center justify-center p-4">
+    <div class="bg-slate-950 border-2 border-purple-500 rounded-2xl max-w-md w-full p-6 sm:p-8 shadow-[0_0_40px_rgba(139,92,246,0.3)] relative">
+      <button onclick="window.app.closeStagePreviewModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-6 h-6"></i>
+      </button>
+
+      <div class="text-center mb-6">
+        <div class="w-16 h-16 rounded-2xl bg-purple-950/80 border border-purple-500/50 mx-auto flex items-center justify-center text-purple-400 mb-4 shadow-[0_0_20px_#8b5cf6]">
+          <i data-lucide="terminal" class="w-8 h-8"></i>
+        </div>
+        <h3 id="preview-title" class="font-arcade text-base text-slate-100 mb-1">Stage 1: Hello World</h3>
+        <p id="preview-subtitle" class="font-mono text-xs text-purple-400 font-semibold mb-3">Terminal &amp; Syntax Intro</p>
+        <p id="preview-desc" class="text-sm text-slate-400 font-mono">Decompile mainframe greetings and execute your very first program output.</p>
+      </div>
+
+      <!-- Rewards Pill -->
+      <div class="flex items-center justify-center gap-6 py-3 bg-slate-900/80 border border-slate-800 rounded-xl mb-6 font-mono text-xs">
+        <div class="flex items-center gap-1.5 text-purple-300">
+          <i data-lucide="zap" class="w-4 h-4 text-purple-400"></i>
+          <span id="preview-xp">+35 XP</span>
+        </div>
+        <div class="flex items-center gap-1.5 text-amber-300">
+          <span>🪙</span>
+          <span id="preview-coins">+15 Coins</span>
+        </div>
+      </div>
+
+      <button id="btn-start-stage" class="w-full arcade-btn arcade-btn-purple py-3.5 rounded-xl font-arcade text-xs tracking-wider font-bold">
+        START LESSON
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: INTERACTIVE LESSON SCREEN ==================== -->
+  <div id="lesson-modal" class="fixed inset-0 z-50 bg-slate-950 hidden flex-col">
+    
+    <!-- Top Cockpit Bar -->
+    <div class="bg-slate-900/90 border-b border-slate-800 px-6 py-4 flex items-center justify-between gap-6 shrink-0">
+      <button onclick="window.app.closeLesson()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors" title="Exit Lesson">
+        <i data-lucide="x" class="w-6 h-6"></i>
+      </button>
+
+      <!-- Smooth Progress Bar -->
+      <div class="flex-1 max-w-2xl h-3.5 bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-700/80">
+        <div id="lesson-progress-bar" class="h-full bg-gradient-to-r from-emerald-500 to-cyan-400 rounded-full transition-all duration-300 shadow-[0_0_12px_#10b981]" style="width: 0%"></div>
+      </div>
+
+      <!-- Battery Energy Indicator -->
+      <div class="flex items-center gap-2 bg-slate-950 px-3 py-1.5 rounded-xl border border-cyan-500/40">
+        <span class="text-cyan-400 font-bold">⚡</span>
+        <span class="font-arcade text-xs text-cyan-300 font-bold">5/5</span>
+      </div>
+    </div>
+
+    <!-- Boss Battle HUD (Visible during Stage 4) -->
+    <div id="lesson-boss-hud" class="hidden bg-gradient-to-b from-red-950/40 to-transparent border-b border-red-900/50 px-6 py-3">
+      <div class="max-w-2xl mx-auto flex items-center gap-4">
+        <div class="w-12 h-12 rounded-xl bg-red-950 border border-red-500 flex items-center justify-center text-2xl shrink-0 boss-glitch">
+          👾
+        </div>
+        <div class="flex-1">
+          <div class="flex items-center justify-between text-xs font-arcade text-red-400 mb-1">
+            <span>THE GLITCH KING</span>
+            <span id="boss-hp-text">100/100 HP</span>
+          </div>
+          <div class="w-full h-3 bg-slate-900 rounded-full overflow-hidden border border-red-800">
+            <div id="boss-hp-bar" class="h-full bg-gradient-to-r from-red-500 to-pink-500 transition-all duration-300" style="width: 100%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Question Stage & Mascot View -->
+    <div class="flex-1 overflow-y-auto px-4 py-6 flex flex-col items-center justify-start max-w-3xl w-full mx-auto">
+      
+      <!-- Mascot + Instruction Header -->
+      <div class="w-full flex items-start gap-4 mb-6">
+        <!-- SVG Pixel-Bit Mascot -->
+        <div id="mascot-container" class="w-24 h-28 relative shrink-0">
+          <!-- Rendered by pixelbit.js -->
+        </div>
+
+        <!-- Speech Bubble -->
+        <div class="speech-bubble flex-1 p-4">
+          <div id="lesson-q-title" class="font-arcade text-xs text-cyan-400 mb-1">Construct Mainframe Boot</div>
+          <div id="mascot-bubble" class="font-mono text-sm text-slate-200">
+            Arrange the code blocks in logical sequence to complete execution.
+          </div>
+        </div>
+      </div>
+
+      <!-- Question Instruction Banner -->
+      <div class="w-full mb-4">
+        <h3 id="lesson-q-instruction" class="font-heading text-base sm:text-lg font-bold text-slate-100">
+          Order the code blocks correctly:
+        </h3>
+      </div>
+
+      <!-- Dynamic Question Body Area -->
+      <div id="lesson-question-body" class="w-full">
+        <!-- Rendered dynamically by app.js based on question type -->
+      </div>
+
+    </div>
+
+    <!-- Bottom Action Bar & Feedback Drawer -->
+    <div class="relative shrink-0">
+      
+      <!-- Sliding Feedback Drawer -->
+      <div id="lesson-feedback-drawer" class="feedback-drawer hidden-drawer p-5">
+        <div class="max-w-3xl mx-auto flex items-center justify-between w-full">
+          <div class="flex items-center gap-4">
+            <div id="feedback-icon"></div>
+            <div>
+              <div id="feedback-title" class="font-arcade text-sm">CORRECT!</div>
+              <div id="feedback-desc" class="font-mono text-xs text-slate-300">Clean code compiled with zero bugs.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Persistent Check Button Bar -->
+      <div class="bg-slate-950 border-t border-slate-800 px-6 py-4 flex items-center justify-between">
+        <div class="hidden sm:block text-xs font-mono text-slate-500">
+          TIP: Press <kbd class="px-2 py-1 bg-slate-900 border border-slate-700 rounded text-slate-300">ENTER ↵</kbd> to submit
+        </div>
+        <div class="w-full sm:w-auto flex justify-end">
+          <button id="btn-check-answer" class="w-full sm:w-auto arcade-btn arcade-btn-green px-8 py-3.5 rounded-xl font-arcade text-xs tracking-wider font-bold">
+            CHECK ANSWER
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- ==================== MODAL: VICTORY & REWARDS ==================== -->
+  <div id="victory-modal" class="fixed inset-0 z-50 cyber-modal-backdrop hidden items-center justify-center p-4">
+    <div class="bg-slate-950 border-2 border-emerald-500 rounded-3xl max-w-md w-full p-8 text-center shadow-[0_0_50px_rgba(16,185,129,0.3)] relative">
+      
+      <!-- Stars Evaluation -->
+      <div id="victory-stars" class="flex justify-center gap-2 mb-6">
+        <!-- Rendered by JS -->
+      </div>
+
+      <h2 class="font-arcade text-lg text-emerald-400 mb-1 text-glow-green">STAGE CLEARED!</h2>
+      <p id="victory-stage-name" class="font-mono text-sm text-slate-300 mb-6">Stage 1: Hello World</p>
+
+      <!-- Level Up Notification Banner -->
+      <div id="victory-levelup-banner" class="hidden mb-6 p-3 bg-purple-950 border border-purple-500 rounded-xl animate-pulse">
+        <div class="font-arcade text-xs text-purple-300 mb-0.5">LEVEL UP COMPLETED!</div>
+        <div id="victory-new-level" class="font-arcade text-base text-yellow-400">LEVEL 2!</div>
+      </div>
+
+      <!-- Rewards Summary Grid -->
+      <div class="grid grid-cols-3 gap-3 bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-8">
+        <div>
+          <div class="text-[10px] font-mono text-slate-400 mb-1">XP EARNED</div>
+          <div id="victory-xp" class="font-arcade text-sm text-purple-400">+35 XP</div>
+        </div>
+        <div>
+          <div class="text-[10px] font-mono text-slate-400 mb-1">BYTE COINS</div>
+          <div id="victory-coins" class="font-arcade text-sm text-yellow-400">+15 🪙</div>
+        </div>
+        <div>
+          <div class="text-[10px] font-mono text-slate-400 mb-1">ACCURACY</div>
+          <div id="victory-accuracy" class="font-arcade text-sm text-emerald-400">100%</div>
+        </div>
+      </div>
+
+      <button id="btn-victory-continue" class="w-full arcade-btn arcade-btn-green py-4 rounded-xl font-arcade text-xs tracking-wider font-bold">
+        RETURN TO MAINFRAME
+      </button>
+
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="app-toast" class="fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl font-mono text-xs shadow-2xl opacity-0 translate-y-4 transition-all duration-300 pointer-events-none">
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/audio.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/pixelbit.js"></script>
+  <script src="js/questions.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
